@@ -133,6 +133,24 @@ footer{display:flex; gap:8px; align-items:center; padding:6px 12px calc(10px + e
 .rmrow .pts{font-weight:800}
 .rmrow.winner .pts{color:var(--gold)}
 .rmrow .gain{color:var(--gold); font-size:13px; margin-left:8px}
+
+/* card flight layer */
+#fx{position:fixed; inset:0; pointer-events:none; z-index:70}
+#fx .card{position:absolute; left:0; top:0; transform-origin:0 0; transition:transform .3s cubic-bezier(.45,.1,.35,1); will-change:transform}
+
+/* settings */
+.srow{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:11px 2px; border-bottom:1px solid #222a4a; font-size:15px; min-height:52px}
+.srow .lbl{flex:1}
+.srow .sub{display:block; font-size:11.5px; color:var(--dim); margin-top:2px}
+.seg{display:flex; background:#10162b; border:1px solid var(--line); border-radius:12px; overflow:hidden; flex:0 0 auto}
+.seg button{min-width:44px; min-height:44px; padding:0 12px; border:0; background:transparent; font-weight:700; font-size:14px; color:var(--dim)}
+.seg button.on{background:#2c3760; color:#fff}
+.tgl{position:relative; width:56px; height:32px; border-radius:16px; background:#10162b; border:1px solid var(--line); transition:background .15s; flex:0 0 auto}
+.tgl::after{content:''; position:absolute; top:3px; left:3px; width:24px; height:24px; border-radius:50%; background:#8b94b8; transition:transform .15s, background .15s}
+.tgl.on{background:#2f9e63}
+.tgl.on::after{transform:translateX(24px); background:#fff}
+.statline{display:flex; justify-content:space-between; padding:7px 2px; font-size:14px; color:#c8d0ea}
+.statline b{color:#fff}
 @media (prefers-reduced-motion: reduce){ *{animation:none!important; transition:none!important} }
 @media (max-height:700px){ :root{--cw:60px} #bots{min-height:84px} #hand{min-height:116px} #table{--cw:74px} }
 </style>
@@ -140,7 +158,7 @@ footer{display:flex; gap:8px; align-items:center; padding:6px 12px calc(10px + e
 <body>
 <div id="app">
   <header>
-    <button class="hbtn" id="bNew" aria-label="New game">↻</button>
+    <button class="hbtn" id="bSettings" aria-label="Settings">⚙</button>
     <div id="hinfo"><div id="hTitle">UNO</div><div id="hSub"></div></div>
     <button class="hbtn" id="bRules" aria-label="Rules">?</button>
   </header>
@@ -173,6 +191,42 @@ footer{display:flex; gap:8px; align-items:center; padding:6px 12px calc(10px + e
 </div>
 
 <div id="toasts"></div>
+<div id="fx"></div>
+
+<div class="modal hidden" id="settingsModal">
+  <div class="sheet">
+    <h2>Settings</h2>
+    <div class="srow">
+      <span class="lbl">Bots<span class="sub">applies to the next game</span></span>
+      <div class="seg" id="segBots"><button data-v="1">1</button><button data-v="2">2</button><button data-v="3">3</button></div>
+    </div>
+    <div class="srow">
+      <span class="lbl">Mode<span class="sub">applies to the next game</span></span>
+      <div class="seg" id="segMode"><button data-v="match">To 500</button><button data-v="single">1 round</button></div>
+    </div>
+    <div class="srow" data-tgl="stack">
+      <span class="lbl">Stack +2 on +2<span class="sub">answer a +2 with your own; the pile passes on</span></span>
+      <div class="tgl" id="tglstack"></div>
+    </div>
+    <div class="srow" data-tgl="drawToMatch">
+      <span class="lbl">Draw until playable<span class="sub">keep drawing until you can play</span></span>
+      <div class="tgl" id="tgldrawToMatch"></div>
+    </div>
+    <div class="srow" data-tgl="mute">
+      <span class="lbl">Mute sounds</span>
+      <div class="tgl" id="tglmute"></div>
+    </div>
+    <div style="margin-top:8px">
+      <div class="statline"><span>Matches won · lost</span><b id="stMatch">0 · 0</b></div>
+      <div class="statline"><span>Rounds won · lost</span><b id="stRound">0 · 0</b></div>
+    </div>
+    <button class="btn primary full" id="sNew">New game</button>
+    <div style="display:flex; gap:8px; margin-top:8px">
+      <button class="btn ghost" style="flex:1" id="sReset">Reset stats</button>
+      <button class="btn ghost" style="flex:1" id="sClose">Close</button>
+    </div>
+  </div>
+</div>
 
 <div class="modal hidden" id="wildModal">
   <div class="sheet">
@@ -200,7 +254,9 @@ footer{display:flex; gap:8px; align-items:center; padding:6px 12px calc(10px + e
     <div style="font-size:14px; line-height:1.55; color:#c8d0ea">
       <p>Match the top card by <b>color, number, or symbol</b> — or play a Wild. Can't (or don't want to) play? Tap the deck to draw one; if it's playable you may play it right away.</p>
       <p style="margin-top:8px"><b>Skip</b> skips the next player. <b>Reverse</b> flips direction (acts like Skip with 2 players). <b>+2</b> makes the next player draw 2 and lose a turn. <b>Wild</b> picks the color. <b>Wild +4</b> picks the color and the next player draws 4.</p>
-      <p style="margin-top:8px">First to empty their hand wins the round and scores everyone else's cards (numbers = face value, actions = 20, wilds = 50). First to <b>500</b> wins the match.</p>
+      <p style="margin-top:8px"><b>UNO!</b> When you play down to one card, tap the UNO! button before the next player acts — or a bot may catch you and you draw 2. Bots call it too, but they sometimes forget: when a bot's avatar glows gold, hit <b>CATCH!</b> to make them draw 2.</p>
+      <p style="margin-top:8px">First to empty their hand wins the round and scores everyone else's cards (numbers = face value, actions = 20, wilds = 50). First to <b>500</b> wins the match. Single-round mode ends after one hand.</p>
+      <p style="margin-top:8px">House rules in Settings: <b>stack +2 on +2</b> (pass an incoming +2 along by adding your own) and <b>draw until playable</b>.</p>
     </div>
     <button class="btn ghost full" id="rulesClose">Close</button>
   </div>
@@ -629,9 +685,84 @@ var $ = function (s) { return document.querySelector(s); };
 var HEX = { R: '#e6404b', Y: '#f2c40e', G: '#43b04a', B: '#3572dd' };
 var AV = ['🧑', '🦊', '🐙', '🤖'];
 
-var settings = { bots: 3, stack: false, drawToMatch: false, mute: false, single: false };
+var DEFAULTS = { bots: 3, stack: false, drawToMatch: false, mute: false, single: false };
+function loadLS(k, def) {
+  try {
+    var v = JSON.parse(localStorage.getItem(k));
+    return (v && typeof v === 'object') ? Object.assign({}, def, v) : Object.assign({}, def);
+  } catch (e) { return Object.assign({}, def); }
+}
+function saveLS(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+var settings = loadLS('unoSettingsV1', DEFAULTS);
+var stats = loadLS('unoStatsV1', { mw: 0, ml: 0, rw: 0, rl: 0 });
 
-var S = null, busy = false, timer = 0, pendingWild = -1;
+var S = null, busy = false, timer = 0, pendingWild = -1, lastTapRect = null;
+
+/* Chances that make UNO calling a real game: bots usually remember to
+   call, sometimes forget (then you can CATCH), and usually spot you. */
+var BOT_CALLS_UNO = 0.85, BOT_CATCHES_YOU = 0.65;
+
+/* ---------- sound (WebAudio, all synthesized) ---------- */
+var Snd = (function () {
+  var ac = null;
+  function ctx() {
+    if (settings.mute) return null;
+    if (!ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; } }
+    if (ac && ac.state === 'suspended') ac.resume();
+    return ac;
+  }
+  function tone(f, at, dur, type, vol) {
+    var a = ctx(); if (!a) return;
+    var t = a.currentTime + at;
+    var o = a.createOscillator(), g = a.createGain();
+    o.type = type || 'triangle';
+    o.frequency.setValueAtTime(f, t);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol || 0.05, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(a.destination);
+    o.start(t); o.stop(t + dur + 0.03);
+  }
+  return {
+    unlock: function () { ctx(); },
+    click: function () { tone(660, 0, 0.06, 'triangle', 0.035); },
+    play: function (card) {
+      if (!card) return tone(520, 0, 0.07);
+      switch (card.kind) {
+        case 'skip': tone(330, 0, 0.07, 'square', 0.04); tone(220, 0.08, 0.1, 'square', 0.04); break;
+        case 'rev': tone(392, 0, 0.06); tone(523, 0.07, 0.09); break;
+        case 'd2': tone(196, 0, 0.09, 'square', 0.05); tone(147, 0.09, 0.13, 'square', 0.05); break;
+        case 'wild': tone(392, 0, 0.09); tone(494, 0.06, 0.09); tone(587, 0.12, 0.13); break;
+        case 'w4': tone(155, 0, 0.12, 'square', 0.055); tone(117, 0.1, 0.16, 'square', 0.055); tone(98, 0.2, 0.2, 'square', 0.05); break;
+        default: tone(480 + (card.value || 0) * 24, 0, 0.06, 'triangle', 0.045);
+      }
+    },
+    draw: function (n) { for (var i = 0; i < Math.min(n || 1, 4); i++) tone(235 - 18 * i, i * 0.075, 0.05, 'triangle', 0.04); },
+    uno: function () { tone(587, 0, 0.08); tone(880, 0.09, 0.15, 'triangle', 0.06); },
+    caught: function () { tone(740, 0, 0.09, 'sawtooth', 0.04); tone(370, 0.1, 0.18, 'sawtooth', 0.045); },
+    shuffle: function () { for (var i = 0; i < 6; i++) tone(150 + ((i * 97) % 170), i * 0.03, 0.03, 'triangle', 0.02); },
+    win: function () { [523, 659, 784, 1047].forEach(function (f, i) { tone(f, i * 0.11, 0.15, 'triangle', 0.06); }); },
+    lose: function () { [392, 311, 262, 196].forEach(function (f, i) { tone(f, i * 0.12, 0.17, 'triangle', 0.05); }); },
+    error: function () { tone(110, 0, 0.12, 'sawtooth', 0.05); }
+  };
+})();
+document.addEventListener('pointerdown', function () { Snd.unlock(); }, { once: true, passive: true });
+
+/* ---------- card flight animation ---------- */
+function rectOf(el) { return el ? el.getBoundingClientRect() : null; }
+function flyCard(html, from, to) {
+  if (!from || !to) return Promise.resolve();
+  var wrap = document.createElement('div');
+  wrap.innerHTML = html;
+  var el = wrap.firstChild;
+  $('#fx').appendChild(el);
+  el.style.width = from.width + 'px';
+  el.style.transform = 'translate(' + from.left + 'px,' + from.top + 'px) scale(1)';
+  void el.offsetWidth;
+  var s = to.width / from.width;
+  el.style.transform = 'translate(' + to.left + 'px,' + to.top + 'px) scale(' + s + ')';
+  return wait(310).then(function () { el.remove(); });
+}
 
 var SVG_SKIP = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><circle cx="12" cy="12" r="8.2"/><line x1="6.4" y1="6.4" x2="17.6" y2="17.6"/></svg>';
 var SVG_REV = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M13.4 3.6 19.6 8l-6.2 4.4V9.9H8.9A2.4 2.4 0 0 0 6.5 12.3v1.2h-3v-1.2a5.4 5.4 0 0 1 5.4-5.4h4.5V3.6z"/><path d="M10.6 20.4 4.4 16l6.2-4.4v2.5h4.5a2.4 2.4 0 0 0 2.4-2.4v-1.2h3v1.2a5.4 5.4 0 0 1-5.4 5.4h-4.5v3.3z"/></svg>';
@@ -745,8 +876,24 @@ function renderStatus() {
   $('#ctxBtns').innerHTML = html;
 }
 
+function renderActions() {
+  var uno = $('#bUno'), cat = $('#bCatch');
+  var me = S.players[0];
+  var inPlay = S.phase === 'play' || S.phase === 'drawnChoice';
+  var canPre = S.cur === 0 && me.hand.length === 2 && !me.said && inPlay;
+  var urgent = !!(S.unoOpen && S.unoOpen.p === 0);
+  var showSaid = me.said && me.hand.length <= 2 && me.hand.length > 0;
+  uno.classList.toggle('hidden', !(canPre || urgent || showSaid));
+  uno.disabled = !(canPre || urgent);
+  uno.classList.toggle('pulse', urgent);
+  uno.textContent = me.said ? 'UNO ✓' : 'UNO!';
+  var target = (S.unoOpen && S.unoOpen.p !== 0) ? S.unoOpen.p : -1;
+  cat.classList.toggle('hidden', target < 0);
+  cat.classList.toggle('pulse', target >= 0);
+}
+
 function renderAll() {
-  renderBots(); renderTable(); renderHand(); renderHeader(); renderStatus();
+  renderBots(); renderTable(); renderHand(); renderHeader(); renderStatus(); renderActions();
 }
 
 /* ---------- event presentation ---------- */
@@ -759,17 +906,46 @@ function present(evs) {
 
 function presentOne(e) {
   switch (e.t) {
-    case 'play':
+    case 'play': {
+      var from = (e.p === 0 && lastTapRect) ? lastTapRect
+               : rectOf($('#bots .bot[data-p="' + e.p + '"] .av'));
+      if (e.p === 0) lastTapRect = null;
       renderAll();
-      var d = $('#discard').firstChild;
-      if (d) { d.classList.add('pop'); }
-      return wait(260);
-    case 'draw':
+      Snd.play(e.card);
+      var topEl = $('#discard .card');
+      if (from && topEl) {
+        var to = rectOf(topEl);
+        topEl.style.visibility = 'hidden';
+        return flyCard(cardHTML(e.card), from, to).then(function () {
+          var t2 = $('#discard .card');
+          if (t2) { t2.style.visibility = ''; t2.classList.add('pop'); }
+          return wait(70);
+        });
+      }
+      if (topEl) topEl.classList.add('pop');
+      return wait(240);
+    }
+    case 'draw': {
+      var pileR = rectOf($('#drawPile'));
       renderAll();
-      if (e.n > 1 || e.p !== S.cur) toast(pname(e.p) + ' draws ' + e.n);
-      return wait(220);
+      Snd.draw(e.n);
+      if (e.n > 1 || e.p !== 0) toast(pname(e.p) + ' draws ' + e.n);
+      var toR = e.p === 0
+        ? rectOf($('#hand .card:last-child')) || rectOf($('#hand'))
+        : rectOf($('#bots .bot[data-p="' + e.p + '"] .av'));
+      var flights = [];
+      for (var i = 0; i < Math.min(e.n, 3); i++) {
+        (function (i) {
+          flights.push(wait(i * 80).then(function () {
+            return flyCard(cardHTML(null, { back: true }), pileR, toR);
+          }));
+        })(i);
+      }
+      return Promise.all(flights).then(function () { return wait(60); });
+    }
     case 'color':
       toast('Color → ' + UNO.colorName(e.color));
+      Snd.click();
       renderAll();
       return wait(160);
     case 'skipped':
@@ -781,14 +957,17 @@ function presentOne(e) {
       return wait(150);
     case 'reshuffle':
       toast('Deck reshuffled (' + e.n + ' cards)');
-      return wait(180);
+      Snd.shuffle();
+      return wait(200);
     case 'uno':
       renderAll();
       toast(pname(e.p) + ': UNO!');
+      Snd.uno();
       return wait(150);
     case 'caught':
       toast(pname(e.by) + ' caught ' + pname(e.target) + ' — draw 2!');
-      return wait(320);
+      Snd.caught();
+      return wait(340);
     case 'pending':
       toast('+' + e.n + ' pending');
       return wait(120);
@@ -817,7 +996,7 @@ function newGame() {
     bots: settings.bots, stack: settings.stack, drawToMatch: settings.drawToMatch,
     single: settings.single, seed: sd != null ? +sd : undefined
   });
-  ['#wildModal', '#roundModal', '#rulesModal'].forEach(function (s) { $(s).classList.add('hidden'); });
+  ['#wildModal', '#roundModal', '#rulesModal', '#settingsModal'].forEach(function (s) { $(s).classList.add('hidden'); });
   renderAll();
   busy = true;
   present(S.startEvents).then(function () { busy = false; proceed(); });
@@ -847,6 +1026,10 @@ function botAct() {
   if (!S.players[S.cur] || !S.players[S.cur].isBot) return;
   var p = S.cur, evs = [];
   try {
+    /* you left your UNO uncalled: this bot may catch you before it moves */
+    if (S.unoOpen && S.unoOpen.p === 0 && Math.random() < BOT_CATCHES_YOU) {
+      evs = evs.concat(UNO.catchUno(S, p, 0));
+    }
     var mv = UNO.botMove(S, p);
     if (mv.type === 'draw') {
       evs = evs.concat(UNO.drawOne(S, p));
@@ -860,8 +1043,9 @@ function botAct() {
       evs = evs.concat(UNO.playCard(S, p, mv.idx, mv.color));
     }
     var pl = S.players[p];
-    if (S.phase !== 'roundOver' && S.phase !== 'matchOver' && pl.hand.length === 1 && !pl.said) {
-      evs = evs.concat(UNO.callUno(S, p)); /* M1: bots always remember */
+    if (S.phase !== 'roundOver' && S.phase !== 'matchOver' && pl.hand.length === 1 && !pl.said &&
+        Math.random() < BOT_CALLS_UNO) {
+      evs = evs.concat(UNO.callUno(S, p)); /* sometimes they forget — CATCH them! */
     }
   } catch (err) { console.error(err); }
   busy = true;
@@ -871,13 +1055,29 @@ function botAct() {
 function showRoundModal() {
   var over = S.phase === 'matchOver';
   var w = over ? S.matchWinner : S.roundWinner;
+
+  /* count stats + fanfare exactly once per round */
+  if (S._counted !== S.round) {
+    S._counted = S.round;
+    if (S.roundWinner === 0) stats.rw++; else stats.rl++;
+    if (over) { if (w === 0) stats.mw++; else stats.ml++; }
+    saveLS('unoStatsV1', stats);
+    if (w === 0) Snd.win(); else Snd.lose();
+  }
+
+  /* losers' cards are still in hand: recompute what this round was worth */
+  var gained = 0;
+  S.players.forEach(function (p, i) {
+    if (i !== S.roundWinner) p.hand.forEach(function (c) { gained += UNO.cardPoints(c); });
+  });
+
   $('#rmTitle').textContent = over
     ? (S.rules.target ? pname(w) + ' wins the match!' : pname(w) + ' wins!')
     : pname(w) + ' wins the round!';
   var rows = S.players.map(function (p, i) { return { i: i, p: p }; })
     .sort(function (a, b) { return b.p.score - a.p.score; });
   $('#rmRows').innerHTML = rows.map(function (r) {
-    var gain = (r.i === S.roundWinner) ? '<span class="gain">winner</span>' : '';
+    var gain = (r.i === S.roundWinner) ? '<span class="gain">+' + gained + '</span>' : '';
     return '<div class="rmrow' + (r.i === w ? ' winner' : '') + '"><span>' + AV[r.i] + ' ' + pname(r.i) + gain +
       '</span><span class="pts">' + r.p.score + '</span></div>';
   }).join('');
@@ -901,12 +1101,14 @@ function showRoundModal() {
 function tapCard(i) {
   if (busy || !S || S.cur !== 0) return;
   if (S.phase !== 'play' && S.phase !== 'drawnChoice') return;
+  var el = $('#hand .card[data-idx="' + i + '"]');
   var legal = UNO.playableIdxs(S, 0);
   if (legal.indexOf(i) < 0) {
-    var el = $('#hand .card[data-idx="' + i + '"]');
     if (el) { el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); }
+    Snd.error();
     return;
   }
+  lastTapRect = rectOf(el);
   var c = S.players[0].hand[i];
   if (c.kind === 'wild' || c.kind === 'w4') {
     pendingWild = i;
@@ -925,6 +1127,30 @@ function tapDraw() {
   }
 }
 
+/* ---------- settings ---------- */
+
+function renderSettings() {
+  document.querySelectorAll('#segBots button').forEach(function (b) {
+    b.classList.toggle('on', +b.dataset.v === settings.bots);
+  });
+  document.querySelectorAll('#segMode button').forEach(function (b) {
+    b.classList.toggle('on', (b.dataset.v === 'single') === !!settings.single);
+  });
+  ['stack', 'drawToMatch', 'mute'].forEach(function (k) {
+    $('#tgl' + k).classList.toggle('on', !!settings[k]);
+  });
+  $('#stMatch').textContent = stats.mw + ' · ' + stats.ml;
+  $('#stRound').textContent = stats.rw + ' · ' + stats.rl;
+}
+
+function settingsChanged() {
+  saveLS('unoSettingsV1', settings);
+  /* house rules apply live; bots & mode take effect on the next game */
+  if (S) { S.rules.stack = settings.stack; S.rules.drawToMatch = settings.drawToMatch; }
+  renderSettings();
+  if (S) renderAll();
+}
+
 document.addEventListener('DOMContentLoaded', function () {
   $('#hand').addEventListener('click', function (e) {
     var el = e.target.closest('.card');
@@ -939,6 +1165,7 @@ document.addEventListener('DOMContentLoaded', function () {
     else if (act === 'playDrawn') {
       var i = S.drawnIdx;
       if (i == null) return;
+      lastTapRect = rectOf($('#hand .card.drawn'));
       var c = S.players[0].hand[i];
       if (c.kind === 'wild' || c.kind === 'w4') {
         pendingWild = i;
@@ -958,7 +1185,63 @@ document.addEventListener('DOMContentLoaded', function () {
       renderAll();
     }
   });
-  $('#bNew').addEventListener('click', function () { newGame(); toast('New game'); });
+
+  /* UNO! and CATCH! bypass the animation lock — timing is the game */
+  $('#bUno').addEventListener('click', function () {
+    if (!S) return;
+    var evs = UNO.callUno(S, 0);
+    if (evs.length) { Snd.uno(); toast('You: UNO!'); renderAll(); }
+  });
+  function tryCatch() {
+    if (!S || !S.unoOpen || S.unoOpen.p === 0) return;
+    var t = S.unoOpen.p;
+    var evs = UNO.catchUno(S, 0, t);
+    if (evs.length) {
+      Snd.caught();
+      toast('You caught ' + pname(t) + ' — they draw 2!');
+      renderAll();
+    }
+  }
+  $('#bCatch').addEventListener('click', tryCatch);
+  $('#bots').addEventListener('click', function (e) {
+    var b = e.target.closest('.bot');
+    if (b && S && S.unoOpen && S.unoOpen.p === +b.dataset.p) tryCatch();
+  });
+
+  /* settings */
+  $('#bSettings').addEventListener('click', function () {
+    renderSettings();
+    $('#settingsModal').classList.remove('hidden');
+  });
+  $('#segBots').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    settings.bots = +b.dataset.v; Snd.click(); settingsChanged();
+  });
+  $('#segMode').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    settings.single = b.dataset.v === 'single'; Snd.click(); settingsChanged();
+  });
+  document.querySelectorAll('#settingsModal .srow[data-tgl]').forEach(function (row) {
+    row.addEventListener('click', function () {
+      var k = row.dataset.tgl;
+      settings[k] = !settings[k];
+      Snd.click(); settingsChanged();
+    });
+  });
+  $('#sNew').addEventListener('click', function () {
+    $('#settingsModal').classList.add('hidden');
+    newGame(); toast('New game');
+  });
+  $('#sReset').addEventListener('click', function () {
+    stats = { mw: 0, ml: 0, rw: 0, rl: 0 };
+    saveLS('unoStatsV1', stats);
+    renderSettings(); Snd.click();
+  });
+  $('#sClose').addEventListener('click', function () { $('#settingsModal').classList.add('hidden'); });
+  $('#settingsModal').addEventListener('click', function (e) {
+    if (e.target === $('#settingsModal')) $('#settingsModal').classList.add('hidden');
+  });
+
   $('#bRules').addEventListener('click', function () { $('#rulesModal').classList.remove('hidden'); });
   $('#rulesClose').addEventListener('click', function () { $('#rulesModal').classList.add('hidden'); });
   $('#rulesModal').addEventListener('click', function (e) {
@@ -966,6 +1249,9 @@ document.addEventListener('DOMContentLoaded', function () {
   });
   newGame();
 });
+
+/* tiny hook for automated smoke tests */
+window.__uno = { state: function () { return S; }, render: function () { renderAll(); } };
 })();
 </script>
 </body>
