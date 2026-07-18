@@ -20,9 +20,11 @@ sounds synthesized with WebAudio, zero network requests) plus an optional
 
 **Easiest — host it once, install, then it works in airplane mode:**
 
-1. Enable GitHub Pages for this repo (Settings → Pages → Deploy from a
-   branch → pick this branch, `/ (root)`).
-2. Open the Pages URL on your phone once while online.
+1. The included workflow (`.github/workflows/pages.yml`) deploys to
+   GitHub Pages automatically on every push to this branch and enables
+   Pages on its first run. (Manual alternative: Settings → Pages →
+   Deploy from a branch.)
+2. Open https://wei-chen-7.github.io/UNO/ on your phone once while online.
 3. *Add to Home Screen* (Android Chrome: ⋮ → Add to Home screen;
    iOS Safari: Share → Add to Home Screen).
 4. Launch from the icon — fullscreen, fully offline from then on.
