@@ -1,0 +1,972 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0e1322">
+<title>UNO Offline</title>
+<style>
+:root{
+  --R:#e6404b; --Y:#f2c40e; --G:#43b04a; --B:#3572dd;
+  --bg:#0e1322; --panel:#182038; --line:#2a3355; --ink:#eef2ff; --dim:#939cc0;
+  --accent:#57d7ff; --gold:#ffcf57; --cw:68px;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+html,body{height:100%}
+body{
+  position:fixed; inset:0; overflow:hidden;
+  background:radial-gradient(130% 90% at 50% 0%, #1c2545 0%, var(--bg) 62%);
+  color:var(--ink);
+  font-family:system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  touch-action:manipulation; overscroll-behavior:none;
+}
+button{font-family:inherit; color:inherit; touch-action:manipulation}
+.hidden{display:none!important}
+
+#app{
+  display:grid; grid-template-rows:auto auto 1fr auto auto;
+  grid-template-columns:minmax(0,100%);
+  height:100%; height:100dvh; max-width:520px; margin:0 auto;
+  padding-top:env(safe-area-inset-top);
+  padding-left:env(safe-area-inset-left); padding-right:env(safe-area-inset-right);
+}
+#app>*{min-width:0}
+
+/* header */
+header{display:flex; align-items:center; justify-content:space-between; padding:6px 10px; min-height:52px}
+.hbtn{width:44px; height:44px; border-radius:13px; border:1px solid var(--line); background:#161d36; font-size:19px; line-height:1}
+.hbtn:active{background:#202a4d}
+#hinfo{text-align:center; line-height:1.3; min-width:0}
+#hTitle{font-weight:900; font-style:italic; letter-spacing:1px; font-size:16px}
+#hSub{font-size:12px; color:var(--dim)}
+
+/* bots */
+#bots{display:flex; justify-content:space-evenly; align-items:flex-start; padding:4px 6px 0; min-height:96px}
+.bot{position:relative; display:flex; flex-direction:column; align-items:center; gap:2px; min-width:86px; padding:8px 6px 4px; border-radius:14px}
+.bot .av{width:48px; height:48px; border-radius:50%; background:var(--panel); display:grid; place-items:center; font-size:27px; box-shadow:0 0 0 2px var(--line); transition:box-shadow .2s}
+.bot.active .av{box-shadow:0 0 0 3px var(--accent), 0 0 18px rgba(87,215,255,.55); animation:breathe 1.3s ease-in-out infinite}
+.bot.catchable .av{box-shadow:0 0 0 3px var(--gold), 0 0 16px rgba(255,207,87,.7)}
+.bot .nm{font-size:12px; color:var(--dim); font-weight:600}
+.bot .sc{font-size:11px; color:var(--gold); min-height:13px}
+.bot .ct{position:absolute; top:2px; right:10px; background:#fff; color:#14192e; font-weight:800; font-size:12px; min-width:22px; height:22px; border-radius:11px; display:grid; place-items:center; padding:0 6px; box-shadow:0 1px 3px rgba(0,0,0,.45)}
+.bot .say{position:absolute; top:-4px; left:4px; background:var(--gold); color:#4a2f00; font-weight:900; font-style:italic; font-size:11px; padding:2px 8px; border-radius:10px; opacity:0; transform:scale(.6); transition:.18s; z-index:2}
+.bot .say.on{opacity:1; transform:scale(1)}
+@keyframes breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+
+/* table */
+#table{display:flex; align-items:center; justify-content:center; gap:22px; --cw:82px; padding:8px 0; min-height:0}
+.pile{display:flex; flex-direction:column; align-items:center; gap:6px}
+.plbl{font-size:10px; letter-spacing:2px; color:var(--dim); min-height:12px}
+#drawPile{position:relative; border-radius:11px}
+#drawPile::before,#drawPile::after{content:''; position:absolute; inset:0; border-radius:10px; background:#141a30; box-shadow:0 0 0 1px #232b4c; z-index:-1}
+#drawPile::before{transform:translate(3px,3px)}
+#drawPile::after{transform:translate(6px,6px)}
+#drawPile:active .card{transform:translateY(2px)}
+.dct{position:absolute; bottom:-7px; right:-7px; background:#fff; color:#14192e; font-weight:800; font-size:12px; min-width:24px; height:22px; border-radius:11px; display:grid; place-items:center; padding:0 6px; z-index:2; box-shadow:0 1px 3px rgba(0,0,0,.45)}
+#mid{display:flex; flex-direction:column; align-items:center; gap:12px; width:52px}
+#dir{width:42px; height:42px; opacity:.5; transition:transform .35s}
+#dir.flip{transform:scaleX(-1)}
+#dir svg{width:100%; height:100%}
+#colorChip{width:24px; height:24px; border-radius:50%; box-shadow:0 0 12px 2px currentColor; border:2px solid rgba(255,255,255,.75); transition:background .2s}
+#discard .card.pop{animation:pop .28s}
+@keyframes pop{0%{transform:scale(.6) rotate(-8deg); opacity:.4}70%{transform:scale(1.07) rotate(2deg)}100%{transform:scale(1)}}
+
+/* cards */
+.card{position:relative; flex:0 0 auto; width:var(--cw); aspect-ratio:2/3; border-radius:10px; background:#fff; box-shadow:0 2px 6px rgba(0,0,0,.45); transition:transform .16s, opacity .16s, box-shadow .16s}
+.card .f{position:absolute; inset:4px; border-radius:7px; display:grid; place-items:center; overflow:hidden}
+.card.cR .f{background:var(--R)} .card.cY .f{background:var(--Y)} .card.cG .f{background:var(--G)} .card.cB .f{background:var(--B)} .card.cW .f{background:#242a45}
+.card .oval{position:absolute; inset:9% 10%; background:#f6f6f8; border-radius:50%; transform:rotate(-28deg); box-shadow:inset 0 0 0 2px rgba(0,0,0,.06)}
+.card.cW .oval{background:conic-gradient(var(--R) 0 25%, var(--Y) 0 50%, var(--G) 0 75%, var(--B) 0); box-shadow:inset 0 0 0 3px #f6f6f8}
+.card .big{position:relative; z-index:1; font-weight:900; font-style:italic; font-size:calc(var(--cw)*.52); line-height:1; text-shadow:2.5px 2.5px 0 rgba(0,0,0,.3)}
+.card.cR .big{color:var(--R)} .card.cY .big{color:#e5ae00} .card.cG .big{color:var(--G)} .card.cB .big{color:var(--B)}
+.card .big.txt{font-size:calc(var(--cw)*.42)}
+.card .big.wl{color:#fff; text-shadow:0 2px 5px rgba(0,0,0,.65); font-size:calc(var(--cw)*.4)}
+.card .big.sym{width:58%; aspect-ratio:1; display:grid; place-items:center; filter:drop-shadow(1.5px 1.5px 0 rgba(0,0,0,.18))}
+.card .big.sym svg{width:100%; height:100%}
+.card .pip{position:absolute; z-index:1; font-weight:800; font-style:italic; font-size:calc(var(--cw)*.19); color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.4); line-height:1}
+.card .pip svg{width:calc(var(--cw)*.19); height:calc(var(--cw)*.19); filter:drop-shadow(0 1px 1px rgba(0,0,0,.4))}
+.pip.tl{top:6px; left:8px} .pip.br{bottom:6px; right:8px; transform:rotate(180deg)}
+.card.back .f{background:#1a2140}
+.card.back .oval{background:var(--R); box-shadow:inset 0 0 0 2px rgba(255,255,255,.5)}
+.card.back .big{color:#fff; font-size:calc(var(--cw)*.3); transform:rotate(-28deg); text-shadow:1px 1px 0 rgba(0,0,0,.3)}
+
+/* hand */
+#handWrap{background:linear-gradient(180deg, transparent, rgba(0,0,0,.3)); border-top:1px solid rgba(255,255,255,.04)}
+#hand{display:flex; gap:8px; overflow-x:auto; padding:14px 12px 10px; scrollbar-width:none; -webkit-overflow-scrolling:touch; touch-action:pan-x; min-height:130px}
+#hand::-webkit-scrollbar{display:none}
+#hand.myturn .card.play{transform:translateY(-9px); box-shadow:0 0 0 2px var(--accent), 0 8px 16px rgba(0,0,0,.5)}
+#hand.myturn .card.off{opacity:.42}
+#hand .card.drawn{outline:3px dashed var(--gold); outline-offset:2px}
+.card.shake{animation:shake .3s}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}50%{transform:translateX(5px)}75%{transform:translateX(-3px)}}
+
+/* footer */
+footer{display:flex; gap:8px; align-items:center; padding:6px 12px calc(10px + env(safe-area-inset-bottom)); min-height:64px}
+#status{flex:1; font-size:13.5px; color:var(--dim); line-height:1.3; min-width:0}
+#status b{color:var(--ink)}
+#ctxBtns{display:flex; gap:8px}
+.btn{min-height:46px; min-width:46px; padding:0 16px; border:0; border-radius:23px; font-weight:800; font-size:14.5px; color:#fff; background:#273154; box-shadow:0 2px 0 rgba(0,0,0,.35)}
+.btn:active{transform:translateY(1px)}
+.btn.primary{background:linear-gradient(180deg,#3cc06d,#2b9e56)}
+.btn.ghost{background:#232c49}
+.btn.unob{background:linear-gradient(180deg,#ff5f6d,#e02f3d); font-style:italic; letter-spacing:.5px; font-size:16px}
+.btn.unob:disabled{opacity:.3}
+.btn.catchb{background:linear-gradient(180deg,#ffd166,#eea63a); color:#4a2f00; font-style:italic}
+.btn.pulse{animation:pulseBtn .7s ease-in-out infinite}
+@keyframes pulseBtn{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+.btn.full{width:100%; margin-top:12px}
+
+/* toasts */
+#toasts{position:fixed; left:0; right:0; top:calc(env(safe-area-inset-top) + 116px); display:flex; flex-direction:column; align-items:center; gap:6px; pointer-events:none; z-index:60}
+.toast{background:rgba(9,13,27,.93); border:1px solid var(--line); padding:8px 15px; border-radius:18px; font-size:13.5px; animation:tIn .18s ease-out, tOut .35s ease-in 1.45s forwards; max-width:86vw}
+@keyframes tIn{from{opacity:0; transform:translateY(-8px) scale(.92)}}
+@keyframes tOut{to{opacity:0; transform:translateY(-6px)}}
+
+/* modals */
+.modal{position:fixed; inset:0; background:rgba(4,7,16,.62); display:grid; place-items:center; z-index:90; padding:16px}
+.sheet{width:min(92vw,372px); max-height:82vh; overflow-y:auto; background:#161d36; border:1px solid var(--line); border-radius:20px; padding:20px; box-shadow:0 18px 50px rgba(0,0,0,.5)}
+.sheet h2{font-size:19px; margin-bottom:12px}
+#wildModal .wgrid{display:grid; grid-template-columns:1fr 1fr; gap:12px}
+#wildModal .wgrid button{height:94px; border-radius:16px; border:0; font-size:17px; font-weight:800; color:#fff; text-shadow:0 1px 4px rgba(0,0,0,.45); box-shadow:inset 0 -4px 0 rgba(0,0,0,.2)}
+#wildModal .wgrid button:active{transform:scale(.96)}
+.rmrow{display:flex; justify-content:space-between; align-items:center; padding:9px 4px; border-bottom:1px solid #222a4a; font-size:15px}
+.rmrow .pts{font-weight:800}
+.rmrow.winner .pts{color:var(--gold)}
+.rmrow .gain{color:var(--gold); font-size:13px; margin-left:8px}
+@media (prefers-reduced-motion: reduce){ *{animation:none!important; transition:none!important} }
+@media (max-height:700px){ :root{--cw:60px} #bots{min-height:84px} #hand{min-height:116px} #table{--cw:74px} }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <button class="hbtn" id="bNew" aria-label="New game">↻</button>
+    <div id="hinfo"><div id="hTitle">UNO</div><div id="hSub"></div></div>
+    <button class="hbtn" id="bRules" aria-label="Rules">?</button>
+  </header>
+
+  <section id="bots"></section>
+
+  <section id="table">
+    <div class="pile">
+      <div id="drawPile" role="button" aria-label="Draw a card"></div>
+      <div class="plbl">DRAW</div>
+    </div>
+    <div id="mid">
+      <div id="dir"><svg viewBox="0 0 48 48" fill="none" stroke="#8fb7ff" stroke-width="3.4" stroke-linecap="round"><path d="M39 24a15 15 0 1 1-4.4-10.6"/><path d="M35 5.5v8h-8" stroke-linejoin="round"/></svg></div>
+      <div id="colorChip"></div>
+    </div>
+    <div class="pile">
+      <div id="discard"></div>
+      <div class="plbl">PLAY</div>
+    </div>
+  </section>
+
+  <section id="handWrap"><div id="hand"></div></section>
+
+  <footer>
+    <div id="status"></div>
+    <div id="ctxBtns"></div>
+    <button class="btn catchb hidden" id="bCatch">CATCH!</button>
+    <button class="btn unob hidden" id="bUno" disabled>UNO!</button>
+  </footer>
+</div>
+
+<div id="toasts"></div>
+
+<div class="modal hidden" id="wildModal">
+  <div class="sheet">
+    <h2>Choose a color</h2>
+    <div class="wgrid">
+      <button data-c="R" style="background:var(--R)">Red</button>
+      <button data-c="Y" style="background:var(--Y)">Yellow</button>
+      <button data-c="G" style="background:var(--G)">Green</button>
+      <button data-c="B" style="background:var(--B)">Blue</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal hidden" id="roundModal">
+  <div class="sheet">
+    <h2 id="rmTitle"></h2>
+    <div id="rmRows"></div>
+    <button class="btn primary full" id="rmBtn"></button>
+  </div>
+</div>
+
+<div class="modal hidden" id="rulesModal">
+  <div class="sheet">
+    <h2>How to play</h2>
+    <div style="font-size:14px; line-height:1.55; color:#c8d0ea">
+      <p>Match the top card by <b>color, number, or symbol</b> — or play a Wild. Can't (or don't want to) play? Tap the deck to draw one; if it's playable you may play it right away.</p>
+      <p style="margin-top:8px"><b>Skip</b> skips the next player. <b>Reverse</b> flips direction (acts like Skip with 2 players). <b>+2</b> makes the next player draw 2 and lose a turn. <b>Wild</b> picks the color. <b>Wild +4</b> picks the color and the next player draws 4.</p>
+      <p style="margin-top:8px">First to empty their hand wins the round and scores everyone else's cards (numbers = face value, actions = 20, wilds = 50). First to <b>500</b> wins the match.</p>
+    </div>
+    <button class="btn ghost full" id="rulesClose">Close</button>
+  </div>
+</div>
+
+<script id="uno-engine">
+/* UNO engine — pure game logic, no DOM, no timers.
+   All state transitions happen through the exported functions, which
+   mutate the passed state and return a list of events for presentation. */
+var UNO = (function () {
+  'use strict';
+
+  var COLORS = ['R', 'Y', 'G', 'B'];
+  var COLOR_NAMES = { R: 'Red', Y: 'Yellow', G: 'Green', B: 'Blue' };
+  var BOT_NAMES = ['Ruby', 'Momo', 'Ziggy'];
+
+  function mulberry32(seed) {
+    var a = seed >>> 0;
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  /* 108 cards: per color one 0, two of 1-9, two Skip/Reverse/+2; 4 Wild, 4 Wild+4 */
+  function makeDeck() {
+    var d = [], id = 0, c, v, k, i;
+    for (i = 0; i < COLORS.length; i++) {
+      c = COLORS[i];
+      d.push({ id: id++, color: c, kind: 'num', value: 0 });
+      for (v = 1; v <= 9; v++) {
+        d.push({ id: id++, color: c, kind: 'num', value: v });
+        d.push({ id: id++, color: c, kind: 'num', value: v });
+      }
+      var ks = ['skip', 'rev', 'd2'];
+      for (v = 0; v < ks.length; v++) {
+        k = ks[v];
+        d.push({ id: id++, color: c, kind: k });
+        d.push({ id: id++, color: c, kind: k });
+      }
+    }
+    for (i = 0; i < 4; i++) d.push({ id: id++, color: null, kind: 'wild' });
+    for (i = 0; i < 4; i++) d.push({ id: id++, color: null, kind: 'w4' });
+    return d;
+  }
+
+  function shuffle(a, rng) {
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(rng() * (i + 1));
+      var t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+
+  function cardPoints(c) {
+    if (c.kind === 'num') return c.value;
+    if (c.kind === 'wild' || c.kind === 'w4') return 50;
+    return 20;
+  }
+
+  function colorName(c) { return COLOR_NAMES[c] || 'Wild'; }
+
+  function nextOf(st, p) {
+    var n = st.players.length;
+    return (((p + st.dir) % n) + n) % n;
+  }
+
+  function adv(st, steps) {
+    var n = st.players.length;
+    st.cur = (((st.cur + st.dir * steps) % n) + n) % n;
+  }
+
+  function endAction(st, p) {
+    if (st.players[p].hand.length !== 1) st.players[p].said = false;
+  }
+
+  /* Draw up to n cards for player p, reshuffling the discard (minus top) into
+     the draw pile when it runs dry. Returns how many were actually drawn. */
+  function drawN(st, p, n, ev) {
+    var pl = st.players[p], got = 0;
+    for (var i = 0; i < n; i++) {
+      if (!st.draw.length) {
+        if (st.discard.length > 1) {
+          var top = st.discard.pop();
+          st.draw = shuffle(st.discard, st.rng);
+          st.discard = [top];
+          ev.push({ t: 'reshuffle', n: st.draw.length });
+        }
+        if (!st.draw.length) break;
+      }
+      pl.hand.push(st.draw.pop());
+      got++;
+    }
+    if (got) ev.push({ t: 'draw', p: p, n: got });
+    if (pl.hand.length !== 1) pl.said = false;
+    if (st.unoOpen && st.unoOpen.p === p) st.unoOpen = null;
+    return got;
+  }
+
+  function startRound(st, ev) {
+    st.round++;
+    for (var i = 0; i < st.players.length; i++) {
+      st.players[i].hand = [];
+      st.players[i].said = false;
+    }
+    st.draw = shuffle(makeDeck(), st.rng);
+    st.discard = [];
+    st.pending = 0; st.dir = 1; st.drawnIdx = null;
+    st.unoOpen = null; st.roundWinner = null; st.phase = 'play';
+    for (i = 0; i < 7; i++)
+      for (var j = 0; j < st.players.length; j++)
+        st.players[j].hand.push(st.draw.pop());
+    /* flip the start card; wilds go back into the deck */
+    var top = st.draw.pop();
+    while (top.kind === 'wild' || top.kind === 'w4') {
+      st.draw.splice(Math.floor(st.rng() * (st.draw.length + 1)), 0, top);
+      top = st.draw.pop();
+    }
+    st.discard.push(top);
+    st.color = top.color;
+    var n = st.players.length;
+    var first = st.startPlayer % n;
+    ev.push({ t: 'start', top: top, first: first });
+    if (top.kind === 'skip') {
+      ev.push({ t: 'skipped', p: first });
+      first = (first + 1) % n;
+    } else if (top.kind === 'rev') {
+      st.dir = -1;
+      ev.push({ t: 'reversed' });
+      first = (first - 1 + n) % n;
+    } else if (top.kind === 'd2') {
+      drawN(st, first, 2, ev);
+      ev.push({ t: 'skipped', p: first });
+      first = (first + 1) % n;
+    }
+    st.cur = first;
+    return ev;
+  }
+
+  function newMatch(opts) {
+    opts = opts || {};
+    var seed = (opts.seed == null) ? ((Math.random() * 0x100000000) >>> 0) : (opts.seed >>> 0);
+    var st = {
+      players: [{ name: opts.name || 'You', isBot: false, hand: [], said: false, score: 0 }],
+      rules: {
+        stack: !!opts.stack,
+        drawToMatch: !!opts.drawToMatch,
+        target: opts.single ? 0 : (opts.target || 500)
+      },
+      draw: [], discard: [], color: null, dir: 1, cur: 0, pending: 0,
+      phase: 'play', drawnIdx: null, unoOpen: null,
+      roundWinner: null, matchWinner: null, round: 0, startPlayer: 0,
+      seed: seed, rng: opts.rng || mulberry32(seed)
+    };
+    var nb = Math.max(1, Math.min(3, opts.bots == null ? 3 : opts.bots));
+    for (var i = 0; i < nb; i++)
+      st.players.push({ name: BOT_NAMES[i], isBot: true, hand: [], said: false, score: 0 });
+    st.startEvents = startRound(st, []);
+    return st;
+  }
+
+  function canPlayCard(st, card) {
+    if (st.pending > 0) return card.kind === 'd2'; /* stacking window: only +2 answers +2 */
+    if (card.kind === 'wild' || card.kind === 'w4') return true;
+    if (card.color === st.color) return true;
+    var top = st.discard[st.discard.length - 1];
+    if (card.kind === 'num') return top.kind === 'num' && card.value === top.value;
+    return card.kind === top.kind;
+  }
+
+  function playableIdxs(st, p) {
+    if (p !== st.cur || (st.phase !== 'play' && st.phase !== 'drawnChoice')) return [];
+    var h = st.players[p].hand, out = [];
+    if (st.phase === 'drawnChoice')
+      return canPlayCard(st, h[st.drawnIdx]) ? [st.drawnIdx] : [];
+    for (var i = 0; i < h.length; i++) if (canPlayCard(st, h[i])) out.push(i);
+    return out;
+  }
+
+  function endRound(st, w, ev) {
+    var pts = 0;
+    for (var i = 0; i < st.players.length; i++) {
+      if (i === w) continue;
+      for (var j = 0; j < st.players[i].hand.length; j++)
+        pts += cardPoints(st.players[i].hand[j]);
+    }
+    st.players[w].score += pts;
+    st.roundWinner = w;
+    st.pending = 0; st.drawnIdx = null; st.unoOpen = null;
+    var over = st.rules.target === 0 || st.players[w].score >= st.rules.target;
+    st.phase = over ? 'matchOver' : 'roundOver';
+    if (over) st.matchWinner = w;
+    ev.push({ t: 'roundEnd', winner: w, points: pts, over: over });
+  }
+
+  function playCard(st, p, idx, chosenColor) {
+    var ev = [];
+    if (st.phase !== 'play' && st.phase !== 'drawnChoice') throw new Error('playCard: bad phase ' + st.phase);
+    if (p !== st.cur) throw new Error('playCard: not turn of ' + p);
+    if (st.phase === 'drawnChoice' && idx !== st.drawnIdx) throw new Error('playCard: must play drawn card');
+    var pl = st.players[p];
+    var card = pl.hand[idx];
+    if (!card || !canPlayCard(st, card)) throw new Error('playCard: illegal card');
+    var isWild = card.kind === 'wild' || card.kind === 'w4';
+    if (isWild && COLORS.indexOf(chosenColor) < 0) throw new Error('playCard: wild needs color');
+
+    if (st.unoOpen && st.unoOpen.p !== p) st.unoOpen = null; /* acting closes catch windows */
+    st.phase = 'play'; st.drawnIdx = null;
+    pl.hand.splice(idx, 1);
+    st.discard.push(card);
+    st.color = isWild ? chosenColor : card.color;
+    ev.push({ t: 'play', p: p, card: card, color: st.color });
+    if (isWild) ev.push({ t: 'color', p: p, color: chosenColor });
+
+    if (pl.hand.length === 1) {
+      if (pl.said) ev.push({ t: 'uno', p: p });
+      else st.unoOpen = { p: p };
+    }
+
+    var n = st.players.length;
+    var willWin = pl.hand.length === 0;
+    var v;
+    switch (card.kind) {
+      case 'skip':
+        v = nextOf(st, p);
+        ev.push({ t: 'skipped', p: v });
+        adv(st, 2);
+        break;
+      case 'rev':
+        st.dir = -st.dir;
+        ev.push({ t: 'reversed' });
+        if (n === 2) { ev.push({ t: 'skipped', p: nextOf(st, p) }); /* play again */ }
+        else adv(st, 1);
+        break;
+      case 'd2':
+        st.pending += 2;
+        adv(st, 1);
+        v = st.cur;
+        var canStack = !willWin && st.rules.stack &&
+          st.players[v].hand.some(function (c) { return c.kind === 'd2'; });
+        if (canStack) {
+          ev.push({ t: 'pending', p: v, n: st.pending });
+        } else {
+          drawN(st, v, st.pending, ev);
+          ev.push({ t: 'skipped', p: v });
+          st.pending = 0;
+          adv(st, 1);
+        }
+        break;
+      case 'w4':
+        adv(st, 1);
+        v = st.cur;
+        drawN(st, v, 4, ev);
+        ev.push({ t: 'skipped', p: v });
+        adv(st, 1);
+        break;
+      default:
+        adv(st, 1);
+    }
+    endAction(st, p);
+    if (willWin) endRound(st, p, ev);
+    return ev;
+  }
+
+  /* Voluntary draw. Draws one card (or keeps drawing if drawToMatch);
+     if a playable card lands, phase becomes 'drawnChoice'. */
+  function drawOne(st, p) {
+    var ev = [];
+    if (st.phase !== 'play') throw new Error('drawOne: bad phase');
+    if (p !== st.cur) throw new Error('drawOne: not turn');
+    if (st.pending > 0) throw new Error('drawOne: must resolve pending');
+    if (st.unoOpen && st.unoOpen.p !== p) st.unoOpen = null;
+    var h = st.players[p].hand;
+    do {
+      var got = drawN(st, p, 1, ev);
+      if (!got) {
+        ev.push({ t: 'exhausted' });
+        adv(st, 1);
+        endAction(st, p);
+        return ev;
+      }
+      var idx = h.length - 1;
+      if (canPlayCard(st, h[idx])) {
+        st.phase = 'drawnChoice';
+        st.drawnIdx = idx;
+        ev.push({ t: 'drawnPlayable', p: p });
+        return ev;
+      }
+    } while (st.rules.drawToMatch);
+    ev.push({ t: 'pass', p: p });
+    adv(st, 1);
+    endAction(st, p);
+    return ev;
+  }
+
+  function passDraw(st, p) {
+    if (st.phase !== 'drawnChoice' || p !== st.cur) throw new Error('passDraw: bad call');
+    var ev = [{ t: 'pass', p: p }];
+    st.phase = 'play'; st.drawnIdx = null;
+    adv(st, 1);
+    endAction(st, p);
+    return ev;
+  }
+
+  /* Accept an accumulated +2 stack instead of stacking further. */
+  function takePending(st, p) {
+    if (st.phase !== 'play' || p !== st.cur || st.pending <= 0) throw new Error('takePending: bad call');
+    var ev = [];
+    if (st.unoOpen && st.unoOpen.p !== p) st.unoOpen = null;
+    drawN(st, p, st.pending, ev);
+    ev.push({ t: 'skipped', p: p });
+    st.pending = 0;
+    adv(st, 1);
+    endAction(st, p);
+    return ev;
+  }
+
+  function callUno(st, p) {
+    var pl = st.players[p];
+    if (st.unoOpen && st.unoOpen.p === p && pl.hand.length === 1) {
+      pl.said = true; st.unoOpen = null;
+      return [{ t: 'uno', p: p }];
+    }
+    if (st.cur === p && pl.hand.length === 2 && (st.phase === 'play' || st.phase === 'drawnChoice')) {
+      pl.said = true;
+      return [{ t: 'uno', p: p }];
+    }
+    return [];
+  }
+
+  function catchUno(st, by, target) {
+    if (!(st.unoOpen && st.unoOpen.p === target)) return [];
+    var t = st.players[target];
+    if (t.hand.length !== 1 || t.said) { st.unoOpen = null; return []; }
+    var ev = [{ t: 'caught', by: by, target: target }];
+    drawN(st, target, 2, ev); /* clears unoOpen */
+    return ev;
+  }
+
+  function nextRound(st) {
+    if (st.phase !== 'roundOver') throw new Error('nextRound: bad phase');
+    st.startPlayer = (st.startPlayer + 1) % st.players.length;
+    return startRound(st, []);
+  }
+
+  /* ---- bot AI ---- */
+
+  function botPickColor(hand, rng) {
+    var cnt = { R: 0, Y: 0, G: 0, B: 0 };
+    for (var i = 0; i < hand.length; i++) if (hand[i].color) cnt[hand[i].color]++;
+    var best = null, bestN = -1;
+    for (i = 0; i < COLORS.length; i++)
+      if (cnt[COLORS[i]] > bestN) { bestN = cnt[COLORS[i]]; best = COLORS[i]; }
+    if (bestN <= 0) best = COLORS[Math.floor(rng() * 4)];
+    return best;
+  }
+
+  function botMove(st, p) {
+    var pl = st.players[p], rng = st.rng;
+    function withColor(idx) {
+      var c = pl.hand[idx];
+      var wild = c.kind === 'wild' || c.kind === 'w4';
+      return { type: 'play', idx: idx, color: wild ? botPickColor(pl.hand, rng) : null };
+    }
+    if (st.phase === 'drawnChoice') return withColor(st.drawnIdx);
+    var legal = playableIdxs(st, p);
+    if (st.pending > 0) return legal.length ? withColor(legal[0]) : { type: 'take' };
+    if (!legal.length) return { type: 'draw' };
+
+    var nxt = nextOf(st, p);
+    var nextLow = st.players[nxt].hand.length <= 2;
+    function pick(pred) {
+      var c = [];
+      for (var i = 0; i < legal.length; i++) if (pred(pl.hand[legal[i]])) c.push(legal[i]);
+      return c.length ? c[Math.floor(rng() * c.length)] : -1;
+    }
+    function pickNum() {
+      /* dump the highest-value number, preferring the color we hold most */
+      var bestI = -1, bestV = -1;
+      for (var i = 0; i < legal.length; i++) {
+        var c = pl.hand[legal[i]];
+        if (c.kind === 'num' && c.value > bestV) { bestV = c.value; bestI = legal[i]; }
+      }
+      return bestI;
+    }
+    var i = -1;
+    if (nextLow) {
+      /* attack: the next player is close to going out */
+      i = pick(function (c) { return c.kind === 'd2'; });
+      if (i < 0) i = pick(function (c) { return c.kind === 'skip'; });
+      if (i < 0) i = pick(function (c) { return c.kind === 'rev'; });
+      if (i < 0) i = pickNum();
+      if (i < 0) i = pick(function (c) { return c.kind === 'wild'; });
+      if (i < 0) i = pick(function (c) { return c.kind === 'w4'; });
+    } else {
+      /* hold action cards; dump numbers first, save Wild+4 for last resort */
+      i = pickNum();
+      if (i < 0) i = pick(function (c) { return c.kind === 'rev'; });
+      if (i < 0) i = pick(function (c) { return c.kind === 'skip'; });
+      if (i < 0) i = pick(function (c) { return c.kind === 'd2'; });
+      if (i < 0) i = pick(function (c) { return c.kind === 'wild'; });
+      if (i < 0) i = pick(function (c) { return c.kind === 'w4'; });
+    }
+    return withColor(i);
+  }
+
+  return {
+    COLORS: COLORS, COLOR_NAMES: COLOR_NAMES, colorName: colorName,
+    makeDeck: makeDeck, shuffle: shuffle, cardPoints: cardPoints, mulberry32: mulberry32,
+    newMatch: newMatch, nextRound: nextRound,
+    canPlayCard: canPlayCard, playableIdxs: playableIdxs,
+    playCard: playCard, drawOne: drawOne, passDraw: passDraw, takePending: takePending,
+    callUno: callUno, catchUno: catchUno,
+    botMove: botMove, botPickColor: botPickColor, nextOf: nextOf
+  };
+})();
+if (typeof module !== 'undefined' && module.exports) module.exports = UNO;
+</script>
+
+<script id="uno-ui">
+(function () {
+'use strict';
+var $ = function (s) { return document.querySelector(s); };
+var HEX = { R: '#e6404b', Y: '#f2c40e', G: '#43b04a', B: '#3572dd' };
+var AV = ['🧑', '🦊', '🐙', '🤖'];
+
+var settings = { bots: 3, stack: false, drawToMatch: false, mute: false, single: false };
+
+var S = null, busy = false, timer = 0, pendingWild = -1;
+
+var SVG_SKIP = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><circle cx="12" cy="12" r="8.2"/><line x1="6.4" y1="6.4" x2="17.6" y2="17.6"/></svg>';
+var SVG_REV = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M13.4 3.6 19.6 8l-6.2 4.4V9.9H8.9A2.4 2.4 0 0 0 6.5 12.3v1.2h-3v-1.2a5.4 5.4 0 0 1 5.4-5.4h4.5V3.6z"/><path d="M10.6 20.4 4.4 16l6.2-4.4v2.5h4.5a2.4 2.4 0 0 0 2.4-2.4v-1.2h3v1.2a5.4 5.4 0 0 1-5.4 5.4h-4.5v3.3z"/></svg>';
+
+function pname(i) { return i === 0 ? 'You' : S.players[i].name; }
+function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+function toast(msg) {
+  var d = document.createElement('div');
+  d.className = 'toast'; d.textContent = msg;
+  $('#toasts').appendChild(d);
+  setTimeout(function () { d.remove(); }, 2100);
+}
+
+/* ---------- rendering ---------- */
+
+function cardHTML(c, opts) {
+  opts = opts || {};
+  if (opts.back) return '<div class="card back"><div class="f"><div class="oval"></div><div class="big">UNO</div></div></div>';
+  var col = 'c' + (c.color || 'W');
+  var big = '', pip = '';
+  switch (c.kind) {
+    case 'num': big = '<div class="big">' + c.value + '</div>'; pip = String(c.value); break;
+    case 'skip': big = '<div class="big sym">' + SVG_SKIP + '</div>'; pip = SVG_SKIP; break;
+    case 'rev': big = '<div class="big sym">' + SVG_REV + '</div>'; pip = SVG_REV; break;
+    case 'd2': big = '<div class="big txt">+2</div>'; pip = '+2'; break;
+    case 'wild': big = ''; pip = 'W'; break;
+    case 'w4': big = '<div class="big wl">+4</div>'; pip = '+4'; break;
+  }
+  return '<div class="card ' + col + (opts.cls ? ' ' + opts.cls : '') + '"' +
+    (opts.idx != null ? ' data-idx="' + opts.idx + '"' : '') + '>' +
+    '<div class="f"><div class="oval"></div>' + big +
+    '<div class="pip tl">' + pip + '</div><div class="pip br">' + pip + '</div></div></div>';
+}
+
+function rank(c) {
+  var co = { R: 0, Y: 1, G: 2, B: 3 };
+  var base = c.color != null ? co[c.color] * 100 : 400;
+  var k = c.kind === 'num' ? c.value : ({ skip: 11, rev: 12, d2: 13, wild: 20, w4: 21 })[c.kind];
+  return base + k;
+}
+
+function renderBots() {
+  var html = '';
+  for (var i = 1; i < S.players.length; i++) {
+    var p = S.players[i];
+    var act = S.cur === i && (S.phase === 'play' || S.phase === 'drawnChoice');
+    var catchable = S.unoOpen && S.unoOpen.p === i;
+    html += '<div class="bot' + (act ? ' active' : '') + (catchable ? ' catchable' : '') + '" data-p="' + i + '">' +
+      '<div class="say' + (p.said && p.hand.length === 1 ? ' on' : '') + '">UNO!</div>' +
+      '<div class="av">' + AV[i] + '</div>' +
+      '<div class="ct">' + p.hand.length + '</div>' +
+      '<div class="nm">' + p.name + '</div>' +
+      '<div class="sc">' + (S.rules.target ? p.score + ' pts' : '') + '</div></div>';
+  }
+  $('#bots').innerHTML = html;
+}
+
+function renderTable() {
+  var top = S.discard[S.discard.length - 1];
+  $('#discard').innerHTML = cardHTML(top);
+  if (S.color) {
+    $('#discard').firstChild.style.boxShadow = '0 0 0 3px ' + HEX[S.color] + ', 0 0 26px ' + HEX[S.color] + '99';
+    $('#colorChip').style.background = HEX[S.color];
+    $('#colorChip').style.color = HEX[S.color];
+  }
+  $('#drawPile').innerHTML = cardHTML(null, { back: true }) + '<div class="dct">' + S.draw.length + '</div>';
+  $('#dir').classList.toggle('flip', S.dir < 0);
+}
+
+function renderHand() {
+  var h = S.players[0].hand;
+  var my = S.cur === 0 && (S.phase === 'play' || S.phase === 'drawnChoice');
+  var legal = {};
+  if (my) UNO.playableIdxs(S, 0).forEach(function (i) { legal[i] = true; });
+  var order = h.map(function (_, i) { return i; }).sort(function (a, b) {
+    return (rank(h[a]) - rank(h[b])) || (a - b);
+  });
+  $('#hand').innerHTML = order.map(function (i) {
+    var cls = my ? (legal[i] ? 'play' : 'off') : '';
+    if (S.phase === 'drawnChoice' && S.drawnIdx === i) cls += ' drawn';
+    return cardHTML(h[i], { idx: i, cls: cls });
+  }).join('');
+  $('#hand').classList.toggle('myturn', my);
+}
+
+function renderHeader() {
+  var me = S.players[0];
+  var mode = S.rules.target ? 'First to ' + S.rules.target : 'Single round';
+  $('#hSub').textContent = 'Round ' + S.round + ' · ' + mode + (S.rules.target ? ' · You: ' + me.score + ' pts' : '');
+}
+
+function renderStatus() {
+  var msg = '', html = '';
+  if (S.phase === 'roundOver' || S.phase === 'matchOver') {
+    msg = '';
+  } else if (S.cur !== 0) {
+    msg = '<b>' + pname(S.cur) + '</b> is thinking…';
+  } else if (S.phase === 'drawnChoice') {
+    msg = 'You drew a <b>playable</b> card';
+    html = '<button class="btn primary" data-act="playDrawn">Play it</button>' +
+           '<button class="btn ghost" data-act="keep">Keep</button>';
+  } else if (S.pending > 0) {
+    msg = '<b>+' + S.pending + '</b> on you — stack a +2 or take them';
+    html = '<button class="btn primary" data-act="take">Take ' + S.pending + '</button>';
+  } else {
+    var legal = UNO.playableIdxs(S, 0);
+    msg = legal.length ? '<b>Your turn</b> — play a card or tap the deck'
+                       : 'No playable card — <b>tap the deck</b>';
+  }
+  $('#status').innerHTML = msg;
+  $('#ctxBtns').innerHTML = html;
+}
+
+function renderAll() {
+  renderBots(); renderTable(); renderHand(); renderHeader(); renderStatus();
+}
+
+/* ---------- event presentation ---------- */
+
+function present(evs) {
+  return (evs || []).reduce(function (chain, e) {
+    return chain.then(function () { return presentOne(e); });
+  }, Promise.resolve()).then(function () { renderAll(); });
+}
+
+function presentOne(e) {
+  switch (e.t) {
+    case 'play':
+      renderAll();
+      var d = $('#discard').firstChild;
+      if (d) { d.classList.add('pop'); }
+      return wait(260);
+    case 'draw':
+      renderAll();
+      if (e.n > 1 || e.p !== S.cur) toast(pname(e.p) + ' draws ' + e.n);
+      return wait(220);
+    case 'color':
+      toast('Color → ' + UNO.colorName(e.color));
+      renderAll();
+      return wait(160);
+    case 'skipped':
+      toast(pname(e.p) + ' is skipped');
+      return wait(150);
+    case 'reversed':
+      toast('Direction reversed');
+      renderAll();
+      return wait(150);
+    case 'reshuffle':
+      toast('Deck reshuffled (' + e.n + ' cards)');
+      return wait(180);
+    case 'uno':
+      renderAll();
+      toast(pname(e.p) + ': UNO!');
+      return wait(150);
+    case 'caught':
+      toast(pname(e.by) + ' caught ' + pname(e.target) + ' — draw 2!');
+      return wait(320);
+    case 'pending':
+      toast('+' + e.n + ' pending');
+      return wait(120);
+    case 'pass':
+      if (e.p !== 0) toast(pname(e.p) + ' passes');
+      return wait(120);
+    case 'exhausted':
+      toast('No cards left to draw');
+      return wait(150);
+    case 'roundEnd':
+      renderAll();
+      return wait(400);
+    default:
+      return Promise.resolve();
+  }
+}
+
+/* ---------- game flow ---------- */
+
+function newGame() {
+  clearTimeout(timer);
+  busy = false; pendingWild = -1;
+  var qs = new URLSearchParams(location.search);
+  var sd = qs.get('seed');
+  S = UNO.newMatch({
+    bots: settings.bots, stack: settings.stack, drawToMatch: settings.drawToMatch,
+    single: settings.single, seed: sd != null ? +sd : undefined
+  });
+  ['#wildModal', '#roundModal', '#rulesModal'].forEach(function (s) { $(s).classList.add('hidden'); });
+  renderAll();
+  busy = true;
+  present(S.startEvents).then(function () { busy = false; proceed(); });
+}
+
+function proceed() {
+  renderAll();
+  if (S.phase === 'roundOver' || S.phase === 'matchOver') { showRoundModal(); return; }
+  if (S.players[S.cur].isBot) {
+    var delay = (S.unoOpen ? 1500 : 750) + Math.random() * 400;
+    clearTimeout(timer);
+    timer = setTimeout(botAct, delay);
+  }
+}
+
+function doAction(fn) {
+  if (busy) return;
+  var evs;
+  try { evs = fn(); }
+  catch (err) { console.error(err); renderAll(); return; }
+  busy = true;
+  present(evs).then(function () { busy = false; proceed(); });
+}
+
+function botAct() {
+  if (busy) { timer = setTimeout(botAct, 150); return; }
+  if (!S.players[S.cur] || !S.players[S.cur].isBot) return;
+  var p = S.cur, evs = [];
+  try {
+    var mv = UNO.botMove(S, p);
+    if (mv.type === 'draw') {
+      evs = evs.concat(UNO.drawOne(S, p));
+      if (S.phase === 'drawnChoice' && S.cur === p) {
+        var mv2 = UNO.botMove(S, p);
+        evs = evs.concat(UNO.playCard(S, p, mv2.idx, mv2.color));
+      }
+    } else if (mv.type === 'take') {
+      evs = evs.concat(UNO.takePending(S, p));
+    } else {
+      evs = evs.concat(UNO.playCard(S, p, mv.idx, mv.color));
+    }
+    var pl = S.players[p];
+    if (S.phase !== 'roundOver' && S.phase !== 'matchOver' && pl.hand.length === 1 && !pl.said) {
+      evs = evs.concat(UNO.callUno(S, p)); /* M1: bots always remember */
+    }
+  } catch (err) { console.error(err); }
+  busy = true;
+  present(evs).then(function () { busy = false; proceed(); });
+}
+
+function showRoundModal() {
+  var over = S.phase === 'matchOver';
+  var w = over ? S.matchWinner : S.roundWinner;
+  $('#rmTitle').textContent = over
+    ? (S.rules.target ? pname(w) + ' wins the match!' : pname(w) + ' wins!')
+    : pname(w) + ' wins the round!';
+  var rows = S.players.map(function (p, i) { return { i: i, p: p }; })
+    .sort(function (a, b) { return b.p.score - a.p.score; });
+  $('#rmRows').innerHTML = rows.map(function (r) {
+    var gain = (r.i === S.roundWinner) ? '<span class="gain">winner</span>' : '';
+    return '<div class="rmrow' + (r.i === w ? ' winner' : '') + '"><span>' + AV[r.i] + ' ' + pname(r.i) + gain +
+      '</span><span class="pts">' + r.p.score + '</span></div>';
+  }).join('');
+  $('#rmBtn').textContent = over ? 'New match' : 'Next round';
+  $('#rmBtn').onclick = function () {
+    $('#roundModal').classList.add('hidden');
+    if (over) { newGame(); }
+    else {
+      var evs;
+      try { evs = UNO.nextRound(S); } catch (e) { console.error(e); return; }
+      renderAll();
+      busy = true;
+      present(evs).then(function () { busy = false; proceed(); });
+    }
+  };
+  $('#roundModal').classList.remove('hidden');
+}
+
+/* ---------- input ---------- */
+
+function tapCard(i) {
+  if (busy || !S || S.cur !== 0) return;
+  if (S.phase !== 'play' && S.phase !== 'drawnChoice') return;
+  var legal = UNO.playableIdxs(S, 0);
+  if (legal.indexOf(i) < 0) {
+    var el = $('#hand .card[data-idx="' + i + '"]');
+    if (el) { el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); }
+    return;
+  }
+  var c = S.players[0].hand[i];
+  if (c.kind === 'wild' || c.kind === 'w4') {
+    pendingWild = i;
+    $('#wildModal').classList.remove('hidden');
+  } else {
+    doAction(function () { return UNO.playCard(S, 0, i, null); });
+  }
+}
+
+function tapDraw() {
+  if (busy || !S || S.cur !== 0) return;
+  if (S.phase === 'play' && S.pending > 0) {
+    doAction(function () { return UNO.takePending(S, 0); });
+  } else if (S.phase === 'play') {
+    doAction(function () { return UNO.drawOne(S, 0); });
+  }
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  $('#hand').addEventListener('click', function (e) {
+    var el = e.target.closest('.card');
+    if (el && el.dataset.idx != null) tapCard(+el.dataset.idx);
+  });
+  $('#drawPile').addEventListener('click', tapDraw);
+  $('#ctxBtns').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b || busy || !S) return;
+    var act = b.dataset.act;
+    if (act === 'take') tapDraw();
+    else if (act === 'keep') doAction(function () { return UNO.passDraw(S, 0); });
+    else if (act === 'playDrawn') {
+      var i = S.drawnIdx;
+      if (i == null) return;
+      var c = S.players[0].hand[i];
+      if (c.kind === 'wild' || c.kind === 'w4') {
+        pendingWild = i;
+        $('#wildModal').classList.remove('hidden');
+      } else doAction(function () { return UNO.playCard(S, 0, i, null); });
+    }
+  });
+  $('#wildModal').addEventListener('click', function (e) {
+    var b = e.target.closest('button');
+    if (b && b.dataset.c) {
+      var i = pendingWild; pendingWild = -1;
+      $('#wildModal').classList.add('hidden');
+      if (i >= 0) doAction(function () { return UNO.playCard(S, 0, i, b.dataset.c); });
+    } else if (e.target === $('#wildModal')) {
+      pendingWild = -1;
+      $('#wildModal').classList.add('hidden');
+      renderAll();
+    }
+  });
+  $('#bNew').addEventListener('click', function () { newGame(); toast('New game'); });
+  $('#bRules').addEventListener('click', function () { $('#rulesModal').classList.remove('hidden'); });
+  $('#rulesClose').addEventListener('click', function () { $('#rulesModal').classList.add('hidden'); });
+  $('#rulesModal').addEventListener('click', function (e) {
+    if (e.target === $('#rulesModal')) $('#rulesModal').classList.add('hidden');
+  });
+  newGame();
+});
+})();
+</script>
+</body>
+</html>
